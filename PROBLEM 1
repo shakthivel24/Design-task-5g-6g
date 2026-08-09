@@ -1,1 +1,186 @@
+clc;
+clear;
+close all;
 
+%% MEC-BASED SMART TRAFFIC SIMULATION
+% Problem 1:
+% Design a system architecture for Multi-access Edge Computing
+% to reduce latency in smart traffic applications.
+
+%% Simulation Parameters
+numVehicles = 50;          % Number of vehicles
+numTasks = 100;             % Number of traffic processing tasks
+
+% Communication parameters
+bandwidth = 20e6;           % 20 MHz
+txPower = 0.2;              % Transmission power (W)
+noisePower = 1e-9;          % Noise power (W)
+
+% Processing parameters
+edgeCPU = 10e9;             % Edge computing capability (10 GHz)
+cloudCPU = 3e9;             % Cloud computing capability (3 GHz)
+
+% Network distance
+edgeDistance = 0.05;        % 50 m
+cloudDistance = 100;        % 100 km
+
+% Propagation speed
+speed = 3e8;                % m/s
+
+% Task parameters
+taskSize = randi([500 2000],1,numTasks);       % KB
+computation = randi([1 10],1,numTasks);        % Billion CPU cycles
+
+%% Convert Task Size
+taskBits = taskSize * 8 * 1024;
+
+%% Calculate Data Rate
+SNR = txPower / noisePower;
+
+dataRate = bandwidth * log2(1 + SNR);
+
+%% Initialize Arrays
+edgeLatency = zeros(1,numTasks);
+cloudLatency = zeros(1,numTasks);
+
+edgeProcessing = zeros(1,numTasks);
+cloudProcessing = zeros(1,numTasks);
+
+edgeTransmission = zeros(1,numTasks);
+cloudTransmission = zeros(1,numTasks);
+
+%% Calculate Latency
+
+for i = 1:numTasks
+
+    %% EDGE PROCESSING
+
+    % Transmission delay
+    edgeTransmission(i) = taskBits(i) / dataRate;
+
+    % Propagation delay
+    edgePropagation = edgeDistance / speed;
+
+    % Processing delay
+    edgeProcessing(i) = ...
+        (computation(i) * 1e9) / edgeCPU;
+
+    % Total edge latency
+    edgeLatency(i) = ...
+        edgeTransmission(i) + ...
+        edgePropagation + ...
+        edgeProcessing(i);
+
+
+    %% CLOUD PROCESSING
+
+    % Cloud transmission delay
+    cloudTransmission(i) = taskBits(i) / dataRate;
+
+    % Cloud propagation delay
+    cloudPropagation = cloudDistance / speed;
+
+    % Cloud processing delay
+    cloudProcessing(i) = ...
+        (computation(i) * 1e9) / cloudCPU;
+
+    % Total cloud latency
+    cloudLatency(i) = ...
+        cloudTransmission(i) + ...
+        cloudPropagation + ...
+        cloudProcessing(i);
+
+end
+
+%% Convert to milliseconds
+edgeLatency_ms = edgeLatency * 1000;
+cloudLatency_ms = cloudLatency * 1000;
+
+%% Average Latency
+avgEdgeLatency = mean(edgeLatency_ms);
+avgCloudLatency = mean(cloudLatency_ms);
+
+%% Latency Reduction
+latencyReduction = ...
+    ((avgCloudLatency - avgEdgeLatency) / avgCloudLatency) * 100;
+
+fprintf('\n============================================\n');
+fprintf(' MEC SMART TRAFFIC SIMULATION\n');
+fprintf('============================================\n');
+
+fprintf('Number of Vehicles       : %d\n',numVehicles);
+fprintf('Number of Tasks          : %d\n',numTasks);
+fprintf('Bandwidth                : %.2f MHz\n',bandwidth/1e6);
+fprintf('Data Rate                : %.2f Mbps\n',dataRate/1e6);
+
+fprintf('\nAverage Edge Latency     : %.3f ms\n',avgEdgeLatency);
+fprintf('Average Cloud Latency    : %.3f ms\n',avgCloudLatency);
+
+fprintf('Latency Reduction        : %.2f %%\n',latencyReduction);
+
+%% Figure 1 - Latency Comparison
+
+figure;
+
+bar([avgEdgeLatency avgCloudLatency]);
+
+grid on;
+
+set(gca,'XTickLabel',{'MEC Edge','Cloud'});
+
+ylabel('Average Latency (ms)');
+title('MEC vs Cloud Latency for Smart Traffic');
+
+%% Figure 2 - Task-wise Latency
+
+figure;
+
+plot(1:numTasks,edgeLatency_ms,'-o','LineWidth',1.5);
+hold on;
+
+plot(1:numTasks,cloudLatency_ms,'-s','LineWidth',1.5);
+
+grid on;
+
+xlabel('Traffic Processing Task');
+ylabel('Latency (ms)');
+
+title('Task-wise Latency Comparison');
+
+legend('MEC Edge','Cloud');
+
+%% Figure 3 - Latency Reduction
+
+figure;
+
+reduction = cloudLatency_ms - edgeLatency_ms;
+
+plot(1:numTasks,reduction,'LineWidth',2);
+
+grid on;
+
+xlabel('Traffic Processing Task');
+ylabel('Latency Reduction (ms)');
+
+title('Latency Reduction Using MEC');
+
+%% Figure 4 - Processing Delay
+
+figure;
+
+bar([mean(edgeProcessing)*1000 mean(cloudProcessing)*1000]);
+
+grid on;
+
+set(gca,'XTickLabel',{'Edge','Cloud'});
+
+ylabel('Processing Delay (ms)');
+
+title('Edge vs Cloud Processing Delay');
+
+%% Display Result
+
+fprintf('\nConclusion:\n');
+fprintf('MEC processes traffic data closer to vehicles.\n');
+fprintf('This reduces propagation and processing latency.\n');
+fprintf('Therefore, MEC is suitable for low-latency smart traffic applications.\n');
