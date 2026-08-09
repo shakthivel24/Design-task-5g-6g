@@ -1,1 +1,288 @@
+clc;
+clear;
+close all;
 
+%% 5G EDGE-CLOUD TASK OFFLOADING SIMULATION
+%
+% Problem 6:
+% Develop a task offloading strategy between edge and cloud
+% in 5G applications.
+
+%% Simulation Parameters
+
+numDevices = 50;
+numTasks = 100;
+
+% Communication parameters
+bandwidth = 100e6;           % 100 MHz
+txPower = 0.2;               % W
+noisePower = 1e-9;           % W
+
+% Computing capability
+deviceCPU = 2e9;             % 2 GHz
+edgeCPU = 15e9;               % 15 GHz
+cloudCPU = 5e9;               % 5 GHz
+
+% Distances
+edgeDistance = 100;           % meters
+cloudDistance = 100e3;        % meters
+
+speed = 3e8;
+
+%% Generate Tasks
+
+taskSize = randi([500 5000],1,numTasks);      % KB
+cycles = randi([1 10],1,numTasks);             % Billion cycles
+
+taskBits = taskSize * 8 * 1024;
+
+%% Communication Rate
+
+SNR = txPower / noisePower;
+
+dataRate = bandwidth * log2(1 + SNR);
+
+%% Initialize
+
+localLatency = zeros(1,numTasks);
+edgeLatency = zeros(1,numTasks);
+cloudLatency = zeros(1,numTasks);
+
+localEnergy = zeros(1,numTasks);
+edgeEnergy = zeros(1,numTasks);
+cloudEnergy = zeros(1,numTasks);
+
+decision = zeros(1,numTasks);
+
+%% Task Processing
+
+for i = 1:numTasks
+
+    %% LOCAL PROCESSING
+
+    localProcessing = ...
+        (cycles(i)*1e9)/deviceCPU;
+
+    localLatency(i) = localProcessing;
+
+    localEnergy(i) = ...
+        0.5 * localProcessing;
+
+
+    %% EDGE OFFLOADING
+
+    edgeTransmission = ...
+        taskBits(i)/dataRate;
+
+    edgePropagation = ...
+        edgeDistance/speed;
+
+    edgeProcessing = ...
+        (cycles(i)*1e9)/edgeCPU;
+
+    edgeLatency(i) = ...
+        edgeTransmission + ...
+        edgePropagation + ...
+        edgeProcessing;
+
+    edgeEnergy(i) = ...
+        0.2 * edgeTransmission + ...
+        0.5 * edgeProcessing;
+
+
+    %% CLOUD OFFLOADING
+
+    cloudTransmission = ...
+        taskBits(i)/dataRate;
+
+    cloudPropagation = ...
+        cloudDistance/speed;
+
+    cloudProcessing = ...
+        (cycles(i)*1e9)/cloudCPU;
+
+    cloudLatency(i) = ...
+        cloudTransmission + ...
+        cloudPropagation + ...
+        cloudProcessing;
+
+    cloudEnergy(i) = ...
+        0.2 * cloudTransmission + ...
+        0.5 * cloudProcessing;
+
+
+    %% TASK OFFLOADING DECISION
+
+    % Select the lowest latency option
+
+    latencyValues = [
+        localLatency(i), ...
+        edgeLatency(i), ...
+        cloudLatency(i)
+        ];
+
+    [~,bestOption] = min(latencyValues);
+
+    decision(i) = bestOption;
+
+end
+
+%% Convert Latency to Milliseconds
+
+localLatency_ms = localLatency * 1000;
+edgeLatency_ms = edgeLatency * 1000;
+cloudLatency_ms = cloudLatency * 1000;
+
+%% Average Latency
+
+avgLocal = mean(localLatency_ms);
+avgEdge = mean(edgeLatency_ms);
+avgCloud = mean(cloudLatency_ms);
+
+%% Count Decisions
+
+localTasks = sum(decision == 1);
+edgeTasks = sum(decision == 2);
+cloudTasks = sum(decision == 3);
+
+%% Offloading Percentages
+
+edgePercentage = edgeTasks / numTasks * 100;
+cloudPercentage = cloudTasks / numTasks * 100;
+
+%% Results
+
+fprintf('\n============================================\n');
+fprintf(' 5G EDGE-CLOUD TASK OFFLOADING SIMULATION\n');
+fprintf('============================================\n');
+
+fprintf('Number of Devices       : %d\n',numDevices);
+fprintf('Number of Tasks         : %d\n',numTasks);
+fprintf('Bandwidth               : %.2f MHz\n',bandwidth/1e6);
+fprintf('Data Rate               : %.2f Mbps\n',dataRate/1e6);
+
+fprintf('\nAverage Local Latency   : %.3f ms\n',avgLocal);
+fprintf('Average Edge Latency    : %.3f ms\n',avgEdge);
+fprintf('Average Cloud Latency   : %.3f ms\n',avgCloud);
+
+fprintf('\nTask Allocation:\n');
+
+fprintf('Local Tasks             : %d\n',localTasks);
+fprintf('Edge Tasks              : %d\n',edgeTasks);
+fprintf('Cloud Tasks             : %d\n',cloudTasks);
+
+fprintf('\nEdge Offloading         : %.2f %%\n',edgePercentage);
+fprintf('Cloud Offloading        : %.2f %%\n',cloudPercentage);
+
+%% Figure 1 - Latency Comparison
+
+figure;
+
+bar([avgLocal avgEdge avgCloud]);
+
+grid on;
+
+set(gca,'XTickLabel', ...
+    {'Local','Edge','Cloud'});
+
+ylabel('Average Latency (ms)');
+
+title('Latency Comparison');
+
+%% Figure 2 - Task Allocation
+
+figure;
+
+bar([localTasks edgeTasks cloudTasks]);
+
+grid on;
+
+set(gca,'XTickLabel', ...
+    {'Local','Edge','Cloud'});
+
+ylabel('Number of Tasks');
+
+title('Task Offloading Distribution');
+
+%% Figure 3 - Task-wise Latency
+
+figure;
+
+plot(1:numTasks,localLatency_ms, ...
+    'LineWidth',1.5);
+
+hold on;
+
+plot(1:numTasks,edgeLatency_ms, ...
+    'LineWidth',1.5);
+
+plot(1:numTasks,cloudLatency_ms, ...
+    'LineWidth',1.5);
+
+grid on;
+
+xlabel('Task Number');
+
+ylabel('Latency (ms)');
+
+title('Task-wise Latency');
+
+legend('Local','Edge','Cloud');
+
+%% Figure 4 - Energy Comparison
+
+avgLocalEnergy = mean(localEnergy);
+avgEdgeEnergy = mean(edgeEnergy);
+avgCloudEnergy = mean(cloudEnergy);
+
+figure;
+
+bar([avgLocalEnergy avgEdgeEnergy avgCloudEnergy]);
+
+grid on;
+
+set(gca,'XTickLabel', ...
+    {'Local','Edge','Cloud'});
+
+ylabel('Average Energy');
+
+title('Energy Consumption Comparison');
+
+%% Figure 5 - Offloading Distribution
+
+figure;
+
+pie([localTasks edgeTasks cloudTasks], ...
+    {'Local','Edge','Cloud'});
+
+title('5G Task Offloading Distribution');
+
+%% Figure 6 - Edge vs Cloud
+
+figure;
+
+bar([avgEdge avgCloud]);
+
+grid on;
+
+set(gca,'XTickLabel', ...
+    {'Edge','Cloud'});
+
+ylabel('Latency (ms)');
+
+title('Edge and Cloud Latency Comparison');
+
+%% Final Conclusion
+
+fprintf('\n============================================\n');
+fprintf('CONCLUSION\n');
+fprintf('============================================\n');
+
+fprintf(['The simulation evaluates local processing, edge ', ...
+    'offloading and cloud offloading.\n']);
+
+fprintf(['The proposed latency-based offloading strategy ', ...
+    'selects the processing location with minimum delay.\n']);
+
+fprintf(['Edge computing is preferred when low latency is ', ...
+    'required in 5G applications.\n']);
